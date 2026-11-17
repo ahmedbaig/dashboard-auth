@@ -1,0 +1,428 @@
+swagger: "2.0"
+info:
+  title: dashboard-auth
+  description: Auth routes, served by dashboard-edge on :8080 and translated to gRPC for dashboard-auth. The browser authenticates with the HttpOnly access and refresh cookies; an expired access token returns 401 with code E401-2, then the client calls /api/v1/auth/refresh once and retries.
+  version: v1
+tags:
+  - name: auth
+    description: Sign in, tokens, sessions and user access
+host: localhost:8080
+schemes:
+  - http
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /api/v1/auth/login:
+    post:
+      summary: Sign in with email and password
+      description: Sets the access and refresh cookies. Wrong email and wrong password return the same error. 5 failures lock the email for 15 minutes.
+      operationId: AuthService_Login
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/LoginResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/Status'
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/LoginRequest'
+      tags:
+        - auth
+  /api/v1/auth/logout:
+    post:
+      summary: Sign out this browser
+      description: Ends the session and writes a tombstone so the refresh token can never be used again.
+      operationId: AuthService_Logout
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/LogoutResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/Status'
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/LogoutRequest'
+      tags:
+        - auth
+  /api/v1/auth/password:
+    put:
+      summary: Change password
+      description: Needs the current password. Signs out every other session.
+      operationId: AuthService_ChangePassword
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/ChangePasswordResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/Status'
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ChangePasswordRequest'
+      tags:
+        - auth
+  /api/v1/auth/refresh:
+    post:
+      summary: Get a new token pair
+      description: Reads the refresh cookie. The refresh token is rotated on every call; the previous one keeps working for 30 seconds, after that reusing it signs the session out.
+      operationId: AuthService_Refresh
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/RefreshResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/Status'
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/RefreshRequest'
+      tags:
+        - auth
+  /api/v1/auth/sessions:
+    get:
+      summary: Live sessions and history
+      description: One row per signed-in browser or device, plus how past sessions ended.
+      operationId: AuthService_ListSessions
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/ListSessionsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/Status'
+      tags:
+        - auth
+  /api/v1/auth/sessions/revoke-others:
+    post:
+      summary: Sign out everywhere else
+      description: Signs out every session of the current user except this one.
+      operationId: AuthService_RevokeOtherSessions
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/RevokeOtherSessionsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/Status'
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/RevokeOtherSessionsRequest'
+      tags:
+        - auth
+  /api/v1/auth/sessions/{sid}:
+    delete:
+      summary: Sign out one session
+      description: Signs out another browser or device of the current user.
+      operationId: AuthService_RevokeSession
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/RevokeSessionResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/Status'
+      parameters:
+        - name: sid
+          in: path
+          required: true
+          type: string
+      tags:
+        - auth
+  /api/v1/auth/users:
+    post:
+      summary: Create a user
+      description: Admin only.
+      operationId: AuthService_CreateUser
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/CreateUserResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/Status'
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CreateUserRequest'
+      tags:
+        - auth
+  /api/v1/auth/users/{userId}/access:
+    put:
+      summary: Set roles and features
+      description: Admin only. Updates every live session of that user and pushes session.changed.
+      operationId: AuthService_SetUserAccess
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/SetUserAccessResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/Status'
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          type: string
+          format: int64
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/SetUserAccessBody'
+      tags:
+        - auth
+  /api/v1/session:
+    get:
+      summary: Current user and session
+      description: Roles, features and the session this browser is using.
+      operationId: AuthService_GetSession
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/GetSessionResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/Status'
+      tags:
+        - auth
+definitions:
+  Any:
+    type: object
+    properties:
+      '@type':
+        type: string
+    additionalProperties: true
+  ChangePasswordRequest:
+    type: object
+    properties:
+      currentPassword:
+        type: string
+      newPassword:
+        type: string
+  ChangePasswordResponse:
+    type: object
+  CreateUserRequest:
+    type: object
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+      roles:
+        type: array
+        items:
+          type: string
+      features:
+        type: array
+        items:
+          type: string
+  CreateUserResponse:
+    type: object
+    properties:
+      user:
+        $ref: '#/definitions/User'
+  GetSessionResponse:
+    type: object
+    properties:
+      user:
+        $ref: '#/definitions/User'
+      session:
+        $ref: '#/definitions/Session'
+  ListSessionsResponse:
+    type: object
+    properties:
+      sessions:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/Session'
+      history:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/PastSession'
+  LoginRequest:
+    type: object
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+  LoginResponse:
+    type: object
+    properties:
+      user:
+        $ref: '#/definitions/User'
+      session:
+        $ref: '#/definitions/Session'
+      tokens:
+        $ref: '#/definitions/Tokens'
+  LogoutRequest:
+    type: object
+  LogoutResponse:
+    type: object
+  PastSession:
+    type: object
+    properties:
+      device:
+        type: string
+      browser:
+        type: string
+      ip:
+        type: string
+      createdAt:
+        type: string
+        format: date-time
+      endedAt:
+        type: string
+        format: date-time
+      reason:
+        type: string
+  RefreshRequest:
+    type: object
+    properties:
+      refreshToken:
+        type: string
+  RefreshResponse:
+    type: object
+    properties:
+      user:
+        $ref: '#/definitions/User'
+      tokens:
+        $ref: '#/definitions/Tokens'
+  RevokeOtherSessionsRequest:
+    type: object
+  RevokeOtherSessionsResponse:
+    type: object
+    properties:
+      revoked:
+        type: integer
+        format: int32
+  RevokeSessionResponse:
+    type: object
+  Session:
+    type: object
+    properties:
+      sid:
+        type: string
+      device:
+        type: string
+      browser:
+        type: string
+      ip:
+        type: string
+      createdAt:
+        type: string
+        format: date-time
+      lastSeenAt:
+        type: string
+        format: date-time
+      current:
+        type: boolean
+  SetUserAccessBody:
+    type: object
+    properties:
+      roles:
+        type: array
+        items:
+          type: string
+      features:
+        type: array
+        items:
+          type: string
+  SetUserAccessResponse:
+    type: object
+    properties:
+      user:
+        $ref: '#/definitions/User'
+      sessionsUpdated:
+        type: integer
+        format: int32
+  Status:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+      details:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/Any'
+  Tokens:
+    type: object
+    properties:
+      accessToken:
+        type: string
+      accessExpiresIn:
+        type: string
+        format: int64
+      refreshToken:
+        type: string
+      refreshExpiresIn:
+        type: string
+        format: int64
+  User:
+    type: object
+    properties:
+      id:
+        type: string
+        format: int64
+      email:
+        type: string
+      name:
+        type: string
+      roles:
+        type: array
+        items:
+          type: string
+      features:
+        type: array
+        items:
+          type: string

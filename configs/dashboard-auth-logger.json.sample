@@ -1,0 +1,12 @@
+{
+  "logDirectory": "var/logs",
+  "minimumLogLevel": "info",
+  "logToFile": false,
+  "logToConsole": true,
+  "logToMongo": false,
+  "mongo": {
+    "uri": "mongodb://dashboard_logs:change-me@localhost:27017/dashboard?authSource=dashboard",
+    "database": "dashboard",
+    "retentionDays": 90
+  }
+}

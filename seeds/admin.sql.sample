@@ -1,0 +1,17 @@
+WITH u AS (
+  INSERT INTO users (email, name)
+  VALUES ('you@example.com', 'You')
+  ON CONFLICT (email) DO UPDATE SET updated_at = now()
+  RETURNING id
+), p AS (
+  INSERT INTO password_credentials (user_id, hash)
+  SELECT id, '$argon2id$v=19$m=19456,t=2,p=1$REPLACE_SALT$REPLACE_HASH' FROM u
+  ON CONFLICT (user_id) DO NOTHING
+), r AS (
+  INSERT INTO user_roles (user_id, role)
+  SELECT id, 'admin' FROM u
+  ON CONFLICT DO NOTHING
+)
+INSERT INTO user_features (user_id, feature)
+SELECT id, 'weather:read' FROM u
+ON CONFLICT DO NOTHING;

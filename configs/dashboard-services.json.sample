@@ -1,0 +1,29 @@
+{
+  "edge": {
+    "http": 8080
+  },
+  "auth": {
+    "http": 8081,
+    "grpc": 9081
+  },
+  "weather": {
+    "http": 8082,
+    "grpc": 9082
+  },
+  "dbHandler": {
+    "http": 8090,
+    "grpc": 9090
+  },
+  "redis": {
+    "addr": "localhost:6379",
+    "db": 5,
+    "prefix": "dashboard:"
+  },
+  "cookieDomain": "",
+  "cookieSecure": false,
+  "serviceToken": "change-me",
+  "keys": {
+    "auth": "../keys/auth.pub",
+    "edge": "../keys/edge.pub"
+  }
+}

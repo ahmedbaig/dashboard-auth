@@ -1,0 +1,15 @@
+version: v2
+modules:
+  - path: .
+    excludes:
+      - gen
+      - openapi
+deps:
+  - buf.build/googleapis/googleapis
+  - buf.build/grpc-ecosystem/grpc-gateway
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE

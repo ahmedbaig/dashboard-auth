@@ -1,0 +1,249 @@
+syntax = "proto3";
+
+package dashboard.auth.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "dashboard-auth"
+    version: "v1"
+    description: "Auth routes, served by dashboard-edge on :8080 and translated to gRPC for dashboard-auth. The browser authenticates with the HttpOnly access and refresh cookies; an expired access token returns 401 with code E401-2, then the client calls /api/v1/auth/refresh once and retries."
+  }
+  host: "localhost:8080"
+  schemes: [HTTP, HTTPS]
+  consumes: "application/json"
+  produces: "application/json"
+  tags: [
+    {name: "auth", description: "Sign in, tokens, sessions and user access"}
+  ]
+};
+
+service AuthService {
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/login"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Sign in with email and password"
+      description: "Sets the access and refresh cookies. Wrong email and wrong password return the same error. 5 failures lock the email for 15 minutes."
+      tags: "auth"
+    };
+  }
+
+  rpc Refresh(RefreshRequest) returns (RefreshResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/refresh"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get a new token pair"
+      description: "Reads the refresh cookie. The refresh token is rotated on every call; the previous one keeps working for 30 seconds, after that reusing it signs the session out."
+      tags: "auth"
+    };
+  }
+
+  rpc Logout(LogoutRequest) returns (LogoutResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/logout"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Sign out this browser"
+      description: "Ends the session and writes a tombstone so the refresh token can never be used again."
+      tags: "auth"
+    };
+  }
+
+  rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {
+    option (google.api.http) = {get: "/api/v1/session"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Current user and session"
+      description: "Roles, features and the session this browser is using."
+      tags: "auth"
+    };
+  }
+
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse) {
+    option (google.api.http) = {get: "/api/v1/auth/sessions"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Live sessions and history"
+      description: "One row per signed-in browser or device, plus how past sessions ended."
+      tags: "auth"
+    };
+  }
+
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse) {
+    option (google.api.http) = {delete: "/api/v1/auth/sessions/{sid}"};
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Sign out one session"
+      description: "Signs out another browser or device of the current user."
+      tags: "auth"
+    };
+  }
+
+  rpc RevokeOtherSessions(RevokeOtherSessionsRequest) returns (RevokeOtherSessionsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/sessions/revoke-others"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Sign out everywhere else"
+      description: "Signs out every session of the current user except this one."
+      tags: "auth"
+    };
+  }
+
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/auth/password"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Change password"
+      description: "Needs the current password. Signs out every other session."
+      tags: "auth"
+    };
+  }
+
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/users"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Create a user"
+      description: "Admin only."
+      tags: "auth"
+    };
+  }
+
+  rpc SetUserAccess(SetUserAccessRequest) returns (SetUserAccessResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/auth/users/{user_id}/access"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Set roles and features"
+      description: "Admin only. Updates every live session of that user and pushes session.changed."
+      tags: "auth"
+    };
+  }
+}
+
+message User {
+  int64 id = 1;
+  string email = 2;
+  string name = 3;
+  repeated string roles = 4;
+  repeated string features = 5;
+}
+
+message Session {
+  string sid = 1;
+  string device = 2;
+  string browser = 3;
+  string ip = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp last_seen_at = 6;
+  bool current = 7;
+}
+
+message PastSession {
+  string device = 1;
+  string browser = 2;
+  string ip = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp ended_at = 5;
+  string reason = 6;
+}
+
+message Tokens {
+  string access_token = 1;
+  int64 access_expires_in = 2;
+  string refresh_token = 3;
+  int64 refresh_expires_in = 4;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  User user = 1;
+  Session session = 2;
+  Tokens tokens = 3;
+}
+
+message RefreshRequest {
+  string refresh_token = 1;
+}
+
+message RefreshResponse {
+  User user = 1;
+  Tokens tokens = 2;
+}
+
+message LogoutRequest {}
+
+message LogoutResponse {}
+
+message GetSessionRequest {}
+
+message GetSessionResponse {
+  User user = 1;
+  Session session = 2;
+}
+
+message ListSessionsRequest {}
+
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+  repeated PastSession history = 2;
+}
+
+message RevokeSessionRequest {
+  string sid = 1;
+}
+
+message RevokeSessionResponse {}
+
+message RevokeOtherSessionsRequest {}
+
+message RevokeOtherSessionsResponse {
+  int32 revoked = 1;
+}
+
+message ChangePasswordRequest {
+  string current_password = 1;
+  string new_password = 2;
+}
+
+message ChangePasswordResponse {}
+
+message CreateUserRequest {
+  string email = 1;
+  string name = 2;
+  string password = 3;
+  repeated string roles = 4;
+  repeated string features = 5;
+}
+
+message CreateUserResponse {
+  User user = 1;
+}
+
+message SetUserAccessRequest {
+  int64 user_id = 1;
+  repeated string roles = 2;
+  repeated string features = 3;
+}
+
+message SetUserAccessResponse {
+  User user = 1;
+  int32 sessions_updated = 2;
+}

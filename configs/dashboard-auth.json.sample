@@ -1,0 +1,25 @@
+{
+  "version": "0.1.0",
+  "host": "127.0.0.1",
+  "environment": "localhost",
+  "requestTimeout": "30s",
+  "shutdownTimeout": "15s",
+  "privateKey": "../keys/auth.key",
+  "accessTtl": "10m",
+  "refreshTtl": "168h",
+  "refreshGrace": "30s",
+  "historySize": 20,
+  "login": {
+    "maxFailures": 5,
+    "lockout": "15m"
+  },
+  "minPasswordLength": 12,
+  "dbHandler": {
+    "host": "127.0.0.1",
+    "timeout": "30s"
+  },
+  "jobs": {
+    "capabilitiesEvery": "10m"
+  },
+  "httpApi": true
+}
